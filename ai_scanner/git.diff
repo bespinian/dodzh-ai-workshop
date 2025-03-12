@@ -1,0 +1,307 @@
+200483f27fc8d84d81b2819f62e989b303418028
+diff --git a/simple_app/index.html b/simple_app/index.html
+index 995f1f0..de3ff7b 100644
+--- a/simple_app/index.html
++++ b/simple_app/index.html
+@@ -7,7 +7,7 @@
+     <style>
+         body {
+             font-family: Arial, sans-serif;
+-            max-width: 500px;
++            max-width: 600px;
+             margin: 0 auto;
+             padding: 20px;
+         }
+@@ -29,6 +29,13 @@
+             border: 1px solid #ddd;
+             border-radius: 4px 0 0 4px;
+         }
++        #todo-category {
++            padding: 10px;
++            font-size: 16px;
++            border: 1px solid #ddd;
++            border-left: none;
++            background-color: #f8f8f8;
++        }
+         #add-todo {
+             padding: 10px 15px;
+             background-color: #4CAF50;
+@@ -41,6 +48,27 @@
+         #add-todo:hover {
+             background-color: #45a049;
+         }
++        #category-tabs {
++            display: flex;
++            margin-bottom: 15px;
++            overflow-x: auto;
++        }
++        .category-tab {
++            padding: 8px 16px;
++            margin-right: 5px;
++            background-color: #f1f1f1;
++            border: none;
++            border-radius: 4px;
++            cursor: pointer;
++            font-size: 14px;
++        }
++        .category-tab:hover {
++            background-color: #ddd;
++        }
++        .category-tab.active {
++            background-color: #4CAF50;
++            color: white;
++        }
+         .todo-list {
+             list-style-type: none;
+             padding: 0;
+@@ -61,6 +89,25 @@
+         .todo-checkbox {
+             margin-right: 10px;
+         }
++        .category-badge {
++            font-size: 12px;
++            padding: 3px 8px;
++            border-radius: 10px;
++            margin-right: 10px;
++            color: white;
++        }
++        .category-badge.work {
++            background-color: #007bff;
++        }
++        .category-badge.personal {
++            background-color: #6f42c1;
++        }
++        .category-badge.groceries {
++            background-color: #28a745;
++        }
++        .category-badge.household {
++            background-color: #fd7e14;
++        }
+         .todo-text {
+             flex-grow: 1;
+         }
+@@ -83,9 +130,19 @@
+     <div class="todo-container">
+         <div class="todo-input">
+             <input type="text" id="new-todo" placeholder="Add a new task...">
++            <select id="todo-category">
++                <option value="work">Work</option>
++                <option value="personal">Personal</option>
++                <option value="groceries">Groceries</option>
++                <option value="household">Household</option>
++            </select>
+             <button id="add-todo">Add</button>
+         </div>
+         
++        <div id="category-tabs" class="category-tabs">
++            <!-- Category tabs will be added here dynamically -->
++        </div>
++        
+         <ul id="todo-list" class="todo-list">
+             <!-- Todo items will be added here dynamically -->
+         </ul>
+diff --git a/simple_app/todo-app.ts b/simple_app/todo-app.ts
+index 209e368..dc3131f 100644
+--- a/simple_app/todo-app.ts
++++ b/simple_app/todo-app.ts
+@@ -1,18 +1,23 @@
+-import { Todo, todoService } from './todo-types.js';
++import { Todo, TodoCategory, todoService } from './todo-types.js';
+ 
+ /**
+  * TodoApp class to handle UI interactions
+  */
+ class TodoApp {
+     private todoInput: HTMLInputElement;
++    private categorySelect: HTMLSelectElement;
+     private addButton: HTMLButtonElement;
+     private todoList: HTMLUListElement;
++    private categoryTabs: HTMLDivElement;
++    private activeCategory: TodoCategory | 'all' = 'all';
+ 
+     constructor() {
+         // Get DOM elements
+         this.todoInput = document.getElementById('new-todo') as HTMLInputElement;
++        this.categorySelect = document.getElementById('todo-category') as HTMLSelectElement;
+         this.addButton = document.getElementById('add-todo') as HTMLButtonElement;
+         this.todoList = document.getElementById('todo-list') as HTMLUListElement;
++        this.categoryTabs = document.getElementById('category-tabs') as HTMLDivElement;
+ 
+         // Initialize the app
+         this.initialize();
+@@ -30,18 +35,67 @@ class TodoApp {
+             }
+         });
+ 
++        // Set up category tabs
++        this.setupCategoryTabs();
++
+         // Render initial todos
+         this.renderTodos();
+     }
+ 
++    /**
++     * Set up category tabs for filtering
++     */
++    private setupCategoryTabs(): void {
++        // Create "All" tab
++        this.createCategoryTab('all', 'All');
++        
++        // Create tabs for each category
++        const categories: TodoCategory[] = ['work', 'personal', 'groceries', 'household'];
++        categories.forEach(category => {
++            this.createCategoryTab(category, this.formatCategoryName(category));
++        });
++    }
++
++    /**
++     * Create a category tab
++     */
++    private createCategoryTab(category: TodoCategory | 'all', displayName: string): void {
++        const tab = document.createElement('button');
++        tab.className = `category-tab ${category === this.activeCategory ? 'active' : ''}`;
++        tab.textContent = displayName;
++        tab.addEventListener('click', () => {
++            // Update active category
++            this.activeCategory = category;
++            
++            // Update active tab
++            document.querySelectorAll('.category-tab').forEach(tab => {
++                tab.classList.remove('active');
++            });
++            tab.classList.add('active');
++            
++            // Render filtered todos
++            this.renderTodos();
++        });
++        
++        this.categoryTabs.appendChild(tab);
++    }
++
++    /**
++     * Format category name for display
++     */
++    private formatCategoryName(category: TodoCategory): string {
++        return category.charAt(0).toUpperCase() + category.slice(1);
++    }
++
+     /**
+      * Add a new todo
+      */
+     private addTodo(): void {
+         const text = this.todoInput.value;
++        const category = this.categorySelect.value as TodoCategory;
+         
+         try {
+-            todoService.addTodo(text);
++            todoService.addTodo(text, category);
+             this.todoInput.value = '';
+             this.renderTodos();
+         } catch (error) {
+@@ -71,7 +125,13 @@ class TodoApp {
+      * Render the todo list
+      */
+     private renderTodos(): void {
+-        const todos = todoService.getAllTodos();
++        // Get todos based on active category
++        let todos: Todo[];
++        if (this.activeCategory === 'all') {
++            todos = todoService.getAllTodos();
++        } else {
++            todos = todoService.getTodosByCategory(this.activeCategory);
++        }
+         
+         // Clear the current list
+         this.todoList.innerHTML = '';
+@@ -92,6 +152,7 @@ class TodoApp {
+         const listItem = document.createElement('li');
+         listItem.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+         listItem.dataset.id = todo.id.toString();
++        listItem.dataset.category = todo.category;
+         
+         // Create the checkbox
+         const checkbox = document.createElement('input');
+@@ -100,6 +161,11 @@ class TodoApp {
+         checkbox.checked = todo.completed;
+         checkbox.addEventListener('change', () => this.toggleTodo(todo.id));
+         
++        // Create the category badge
++        const categoryBadge = document.createElement('span');
++        categoryBadge.className = `category-badge ${todo.category}`;
++        categoryBadge.textContent = this.formatCategoryName(todo.category);
++        
+         // Create the text element
+         const textElement = document.createElement('span');
+         textElement.className = 'todo-text';
+@@ -113,6 +179,7 @@ class TodoApp {
+         
+         // Add elements to the list item
+         listItem.appendChild(checkbox);
++        listItem.appendChild(categoryBadge);
+         listItem.appendChild(textElement);
+         listItem.appendChild(deleteButton);
+         
+diff --git a/simple_app/todo-types.ts b/simple_app/todo-types.ts
+index db055ee..27177ab 100644
+--- a/simple_app/todo-types.ts
++++ b/simple_app/todo-types.ts
+@@ -1,3 +1,8 @@
++/**
++ * Represents the available todo categories
++ */
++export type TodoCategory = 'work' | 'personal' | 'groceries' | 'household';
++
+ /**
+  * Represents a todo item
+  */
+@@ -6,6 +11,7 @@ export interface Todo {
+     text: string;
+     completed: boolean;
+     createdAt: Date;
++    category: TodoCategory;
+ }
+ 
+ /**
+@@ -26,11 +32,20 @@ export class TodoService {
+         return [...this.todos];
+     }
+ 
++    /**
++     * Get todos by category
++     * @param category The category to filter by
++     */
++    public getTodosByCategory(category: TodoCategory): Todo[] {
++        return this.todos.filter(todo => todo.category === category);
++    }
++
+     /**
+      * Add a new todo
+      * @param text The text of the todo
++     * @param category The category of the todo
+      */
+-    public addTodo(text: string): Todo {
++    public addTodo(text: string, category: TodoCategory): Todo {
+         const trimmedText = text.trim();
+         if (!trimmedText) {
+             throw new Error('Todo text cannot be empty');
+@@ -40,7 +55,8 @@ export class TodoService {
+             id: Date.now(),
+             text: trimmedText,
+             completed: false,
+-            createdAt: new Date()
++            createdAt: new Date(),
++            category
+         };
+ 
+         this.todos.push(newTodo);
+@@ -102,7 +118,9 @@ export class TodoService {
+                 // Convert the plain objects to Todo objects with proper Date objects
+                 this.todos = parsedTodos.map((todo: any) => ({
+                     ...todo,
+-                    createdAt: new Date(todo.createdAt)
++                    createdAt: new Date(todo.createdAt),
++                    // Handle existing todos that don't have a category
++                    category: todo.category || 'personal'
+                 }));
+             }
+         } catch (error) {

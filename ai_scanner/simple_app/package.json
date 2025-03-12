@@ -1,0 +1,21 @@
+{
+  "name": "typescript-todo-app",
+  "version": "1.0.0",
+  "description": "A simple todo app built with TypeScript",
+  "main": "index.html",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "tsc && npx http-server -o"
+  },
+  "keywords": [
+    "typescript",
+    "todo",
+    "app"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

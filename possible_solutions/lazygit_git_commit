@@ -1,0 +1,40 @@
+customCommands:
+  - key: <c-a>
+    description: Pick AI commit
+    command: |
+      aichat "Analyze the following git diff and generate 5 conventional commit messages:
+        \`\`\`diff
+        $(git diff --cached)
+        \`\`\`
+        Format: <type>(<scope>): <description>
+        
+        Recent commits for context:
+        \`\`\`
+        $(git log -n 10 --pretty=format:"%h - %s" | grep -E "^[a-f0-9]+ - (feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+")
+        \`\`\`
+        
+        Rules:
+        1. Strictly follow the conventional commits format
+        2. Focus on the specific changes in the diff, not generic descriptions
+        3. Use precise and concise language to describe the changes
+        4. Include the scope only if it's clear from the diff (e.g., component or feature name)
+        5. Prioritize 'fix' type for corrections, 'feat' for new features, and appropriate types for other changes
+        6. For minor changes like typo corrections, use 'fix' type
+        7. If the change is in a specific environment or cluster, mention it in the scope
+        8. The scope does only contain "a-z" or "A-Z" or "-"
+        
+        Output only the raw commit messages without any additional formatting or numbering. Example output format:
+        fix(auth): Correct typo in user authentication function
+        feat(api): Add new endpoint for user profile retrieval
+        chore(deps): Update dependencies to latest versions
+        docs(readme): Add deployment instructions for Kubernetes
+        refactor(utils): Optimize error handling in logging module" \
+      | fzf --height 40% --border --ansi --preview "echo {}" --preview-window=up:wrap \
+      | xargs -o -I {} bash -c '
+          COMMIT_MSG_FILE=$(mktemp)
+          echo "{}" > "$COMMIT_MSG_FILE"
+          ${EDITOR:-vim} "$COMMIT_MSG_FILE"
+          [ -s "$COMMIT_MSG_FILE" ] && git commit -F "$COMMIT_MSG_FILE" || echo "Commit aborted: empty message."
+          rm -f "$COMMIT_MSG_FILE"'
+    context: files
+    subprocess: true

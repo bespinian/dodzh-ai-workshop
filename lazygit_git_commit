@@ -1,0 +1,28 @@
+# This configuration file must be stored under ~/.config/lazygit/config.yml
+customCommands:
+  - key: <c-a> # Short-Cut for control - a
+    description: Pick AI commit
+    command: |
+      aichat "
+
+      <YOUR PROMPT>
+
+      \`\`\`diff
+        $(git diff --cached)
+      \`\`\`
+      
+      Recent commits for context:
+      \`\`\`
+        $(git log -n 5 --pretty=format:'%h %s')
+      \`\`\`  
+
+      " \
+      | fzf --height 40% --border --ansi --preview "echo {}" --preview-window=up:wrap \
+      | xargs -o -I {} bash -c '
+      COMMIT_MSG_FILE=$(mktemp)
+      echo "{}" > "$COMMIT_MSG_FILE"
+      ${EDITOR:-vim} "$COMMIT_MSG_FILE"
+      [ -s "$COMMIT_MSG_FILE" ] && git commit -F "$COMMIT_MSG_FILE" || echo "Commit aborted: empty message."
+      rm -f "$COMMIT_MSG_FILE"'
+    context: files
+    subprocess: true
